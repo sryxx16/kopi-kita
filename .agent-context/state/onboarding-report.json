@@ -1,0 +1,21 @@
+{
+  "cliVersion": "1.6.0",
+  "generatedAt": "2026-03-20T16:53:05.553Z",
+  "operationMode": "init",
+  "selectedProfile": "beginner",
+  "selectedProfilePack": null,
+  "selectedStack": "typescript.md",
+  "selectedBlueprint": "api-nextjs.md",
+  "ciGuardrailsEnabled": true,
+  "setupDurationMs": 16637,
+  "autoDetection": {
+    "recommendedStack": null,
+    "recommendedBlueprint": null,
+    "confidenceLabel": null,
+    "confidenceScore": 0,
+    "confidenceGap": 0,
+    "detectionReasoning": "No known project markers were detected.",
+    "rankedCandidates": [],
+    "evidence": []
+  }
+}
