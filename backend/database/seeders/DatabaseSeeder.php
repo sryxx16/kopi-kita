@@ -2,21 +2,46 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\Category;
+use App\Models\Product;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // 1. Bikin Kategori Dulu
+        $kopi = Category::create(['name' => 'Kopi']);
+        $nonKopi = Category::create(['name' => 'Non-Kopi']);
+        $snack = Category::create(['name' => 'Snack']);
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        // 2. Bikin Produknya
+        Product::create([
+            'category_id' => $kopi->id,
+            'name' => 'Kopi Susu Gula Aren',
+            'price' => 18000,
+            'status' => 'tersedia'
+        ]);
+
+        Product::create([
+            'category_id' => $kopi->id,
+            'name' => 'Americano',
+            'price' => 15000,
+            'status' => 'tersedia'
+        ]);
+
+        Product::create([
+            'category_id' => $nonKopi->id,
+            'name' => 'Matcha Latte',
+            'price' => 20000,
+            'status' => 'tersedia'
+        ]);
+
+        Product::create([
+            'category_id' => $snack->id,
+            'name' => 'Kentang Goreng',
+            'price' => 12000,
+            'status' => 'tersedia'
+        ]);
     }
 }
