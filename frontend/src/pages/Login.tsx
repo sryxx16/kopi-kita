@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginAPI } from "../services/auth";
-import { Coffee, Mail, Lock, Loader2 } from "lucide-react"; // Ikon tambahan
+import { Envelope, LockKey, Eye, EyeSlash, Coffee } from "phosphor-react";
+
+// Kita import gambar hero yang ada di folder assets abang
+import heroImage from "../assets/hero.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // State loading
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -19,48 +23,83 @@ export default function Login() {
       await loginAPI(email, password);
       navigate("/dashboard");
     } catch (error: any) {
-      setErrorMsg(error.response?.data?.message || "Email atau password salah");
+      setErrorMsg(
+        error.response?.data?.message || "Terjadi kesalahan pada server",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 p-4">
-      <div className="w-full max-w-md">
-        {/* Card Container */}
-        <div className="bg-white rounded-2xl shadow-xl shadow-orange-200/50 overflow-hidden border border-orange-100">
-          {/* Header Section */}
-          <div className="p-8 pb-0 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
-              <Coffee className="w-8 h-8 text-orange-600" />
+    <div className="flex min-h-screen bg-white font-sans">
+      {/* BAGIAN KIRI: Gambar Estetik (Sembunyi kalau di HP) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-zinc-900 relative items-center justify-center overflow-hidden">
+        {/* Efek overlay hitam transparan biar gambar agak gelap elegan */}
+        <div className="absolute inset-0 bg-black/40 z-10"></div>
+        <img
+          src={heroImage}
+          alt="Kopi Kita Hero"
+          className="absolute inset-0 w-full h-full object-cover z-0"
+        />
+
+        {/* Teks di atas gambar */}
+        <div className="relative z-20 text-center px-12">
+          <div className="bg-orange-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-orange-600/30">
+            <Coffee size={36} weight="fill" className="text-white" />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white mb-4 tracking-tight">
+            Awali Hari Dengan <br />
+            Secangkir Inspirasi
+          </h1>
+          <p className="text-zinc-300 text-lg">
+            Sistem Point of Sale (POS) modern untuk mengelola pesanan dan
+            laporan Kopi Kita.
+          </p>
+        </div>
+      </div>
+
+      {/* BAGIAN KANAN: Form Login */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 bg-white">
+        <div className="w-full max-w-md">
+          {/* Header Form */}
+          <div className="mb-10 lg:hidden flex items-center gap-3">
+            <div className="bg-orange-600 p-2 rounded-xl">
+              <Coffee size={24} weight="bold" className="text-white" />
             </div>
-            <h2 className="text-3xl font-extrabold text-gray-800">Kopi Kita</h2>
-            <p className="text-gray-500 mt-2">
-              Selamat datang kembali! Silakan masuk.
-            </p>
+            <h2 className="text-2xl font-extrabold text-zinc-900">Kopi Kita</h2>
           </div>
 
-          <form onSubmit={handleLogin} className="p-8 space-y-5">
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm text-center animate-shake">
-                {errorMsg}
-              </div>
-            )}
+          <h2 className="text-3xl font-extrabold text-zinc-900 mb-2">
+            Selamat Datang 👋
+          </h2>
+          <p className="text-zinc-500 mb-8">
+            Silakan masukkan kredensial Anda untuk mengakses sistem kasir.
+          </p>
 
+          {/* Pesan Error */}
+          {errorMsg && (
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg text-sm font-medium animate-pulse">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* Form Input */}
+          <form onSubmit={handleLogin} className="space-y-6">
             {/* Input Email */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 ml-1">
-                Email
+            <div>
+              <label className="block text-sm font-bold text-zinc-700 mb-2">
+                Email Kasir / Admin
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                  <Envelope size={20} />
+                </div>
                 <input
                   type="email"
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all"
-                  placeholder="admin@kopi.com"
+                  className="w-full pl-12 pr-4 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all font-medium text-zinc-900"
+                  placeholder="contoh@kopikita.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -68,42 +107,49 @@ export default function Login() {
             </div>
 
             {/* Input Password */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 ml-1">
+            <div>
+              <label className="block text-sm font-bold text-zinc-700 mb-2">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                  <LockKey size={20} />
+                </div>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all"
+                  className="w-full pl-12 pr-12 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all font-medium text-zinc-900"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {/* Tombol Show/Hide Password */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-orange-600 transition-colors"
+                >
+                  {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Tombol Login */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-orange-600 text-white font-bold py-3.5 rounded-xl hover:bg-orange-700 active:scale-[0.98] transition-all duration-200 flex items-center justify-center shadow-lg shadow-orange-200"
+              className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all shadow-lg ${
+                isLoading
+                  ? "bg-orange-400 cursor-not-allowed shadow-none"
+                  : "bg-orange-600 hover:bg-orange-700 hover:shadow-orange-600/30"
+              }`}
             >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Masuk ke Dashboard"
-              )}
+              {isLoading ? "Memeriksa data..." : "Masuk ke Sistem"}
             </button>
           </form>
 
-          {/* Footer Card */}
-          <div className="p-6 bg-gray-50 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-widest">
-              Point of Sale System &copy; 2024
-            </p>
+          <div className="mt-8 text-center text-sm text-zinc-400 font-medium">
+            <p>© 2026 Kopi Kita Point of Sale</p>
           </div>
         </div>
       </div>
