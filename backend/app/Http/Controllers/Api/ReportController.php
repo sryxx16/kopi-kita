@@ -9,34 +9,41 @@ use Carbon\Carbon;
 
 class ReportController extends Controller
 {
-    public function dashboardStats()
+    public function dashboardStats(Request $request)
     {
-        // 1. Ambil tanggal hari ini
-        $today = Carbon::today();
+        $filter = $request->query('filter', 'today');
+        $customDate = $request->query('date'); // Tangkap tanggal dari kalender React
 
-        // 2. Hitung Pendapatan Hari Ini
-        $incomeToday = Transaction::whereDate('created_at', $today)->sum('total_price');
+        // Default: Hari ini
+        $startDate = Carbon::today();
+        $endDate = Carbon::now();
 
-        // 3. Hitung Jumlah Transaksi Hari Ini
-        $transactionsToday = Transaction::whereDate('created_at', $today)->count();
+        // LOGIKA FILTER TANGGAL
+        if ($filter === 'custom' && $customDate) {
+            // Kalau admin milih tanggal di kalender
+            $startDate = Carbon::parse($customDate)->startOfDay();
+            $endDate = Carbon::parse($customDate)->endOfDay();
+        } else if ($filter === '7days') {
+            $startDate = Carbon::today()->subDays(6);
+        } else if ($filter === 'month') {
+            $startDate = Carbon::today()->startOfMonth();
+        }
 
-        // 4. Total Pendapatan Keseluruhan (All Time)
-        $totalIncome = Transaction::sum('total_price');
+        $transactions = Transaction::with('details.product')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-        // 5. Ambil 10 Riwayat Transaksi Terakhir (beserta nama kasirnya)
-        $recentTransactions = Transaction::with('user:id,name')
-                                ->orderBy('created_at', 'desc')
-                                ->take(10)
-                                ->get();
+        $totalRevenue = $transactions->sum('total_price');
+        $totalTransactions = $transactions->count();
 
         return response()->json([
-            'message' => 'Berhasil mengambil data laporan',
-            'stats' => [
-                'income_today' => $incomeToday,
-                'transactions_today' => $transactionsToday,
-                'total_income' => $totalIncome
+            'message' => 'Data Laporan Berhasil Diambil',
+            'summary' => [
+                'revenue' => $totalRevenue,
+                'transactions_count' => $totalTransactions,
             ],
-            'recent_transactions' => $recentTransactions
+            'transactions' => $transactions
         ], 200);
     }
 }

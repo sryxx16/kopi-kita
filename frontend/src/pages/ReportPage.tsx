@@ -1,142 +1,433 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getDashboardStats } from "../services/report";
+import {
+  ChartBar,
+  Receipt,
+  TrendUp,
+  CalendarBlank,
+  X,
+  Printer,
+  Coffee,
+} from "phosphor-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 export default function ReportPage() {
-  const [stats, setStats] = useState<any>(null);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("today");
+  const [customDate, setCustomDate] = useState("");
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const data = await getDashboardStats();
-        setStats(data.stats);
-        setRecentTransactions(data.recent_transactions);
-      } catch (error) {
-        console.error("Gagal mengambil data laporan:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // State Data dari API
+  const [summary, setSummary] = useState({ revenue: 0, transactions_count: 0 });
+  const [transactions, setTransactions] = useState<any[]>([]);
 
-    fetchReports();
-  }, []);
+  // State untuk Modal Struk Digital
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
 
-  const formatRupiah = (angka: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(angka);
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      // Kirim customDate kalau filternya 'custom'
+      const data = await getDashboardStats(
+        filter,
+        filter === "custom" ? customDate : undefined,
+      );
+      setSummary(data.summary);
+      setTransactions(data.transactions);
+    } catch (error) {
+      console.error("Gagal mengambil laporan:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen text-orange-600 font-bold">
-        Memuat Laporan Keuangan...
-      </div>
-    );
-  }
+  // Refresh kalau filter ATAU tanggalnya berubah
+  useEffect(() => {
+    if (filter === "custom" && !customDate) return; // Jangan fetch kalau tanggal belum dipilih
+    fetchReports();
+  }, [filter, customDate]);
+
+  // Auto-refresh tiap kali filter diganti
+  useEffect(() => {
+    fetchReports();
+  }, [filter]);
+
+  // OLAH DATA UNTUK GRAFIK (Cari 5 Menu Terlaris)
+  const getTopProducts = () => {
+    const productSales: Record<string, number> = {};
+    transactions.forEach((tx) => {
+      tx.details?.forEach((detail: any) => {
+        const name = detail.product?.name || "Produk Dihapus";
+        productSales[name] = (productSales[name] || 0) + detail.quantity;
+      });
+    });
+
+    // Ubah jadi array, urutkan, ambil top 5
+    return Object.entries(productSales)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  };
+
+  const pieData = getTopProducts();
+  const COLORS = ["#ea580c", "#f97316", "#fb923c", "#fdba74", "#ffedd5"]; // Gradasi Orange
+
+  // Bantuan untuk hitung menu terlaris nomor 1 buat ditampilkan di Card
+  const bestSeller = pieData.length > 0 ? pieData[0].name : "-";
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8 font-sans">
-      <header className="mb-8 flex justify-between items-center">
+    <div className="font-sans pb-10">
+      {/* HEADER & FILTER */}
+      <header className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end border-b border-zinc-200 pb-5 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-zinc-900">
-            Dashboard Admin
+          <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">
+            Laporan Penjualan
           </h1>
-          <p className="text-zinc-500 mt-1">Rekapitulasi Penjualan Kopi Kita</p>
+          <p className="text-zinc-500 mt-1 font-medium">
+            Pantau performa pendapatan kedai Anda
+          </p>
+        </div>
+
+        {/* AREA FILTER WAKTU & KALENDER */}
+        <div className="flex flex-col md:flex-row items-center gap-3">
+          <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-zinc-200 shadow-sm">
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+              <CalendarBlank size={20} weight="bold" />
+            </div>
+            <select
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                if (e.target.value !== "custom") setCustomDate(""); // Reset tanggal kalau milih yg lain
+              }}
+              className="bg-transparent font-bold text-zinc-700 outline-none cursor-pointer pr-4"
+            >
+              <option value="today">Hari Ini</option>
+              <option value="7days">7 Hari Terakhir</option>
+              <option value="month">Bulan Ini</option>
+              <option value="custom">Pilih Tanggal...</option> {/* OPSI BARU */}
+            </select>
+          </div>
+
+          {/* INPUT KALENDER (MUNCUL KALAU PILIH "Pilih Tanggal...") */}
+          {filter === "custom" && (
+            <input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-orange-500 animate-fade-in"
+            />
+          )}
         </div>
       </header>
 
-      {/* STATS CARDS (Kotak Cuan) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 border-l-4 border-l-orange-500">
-          <h3 className="text-zinc-500 font-medium mb-1">
-            Pendapatan Hari Ini
-          </h3>
-          <p className="text-3xl font-extrabold text-gray-800">
-            {formatRupiah(stats?.income_today || 0)}
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <p className="text-zinc-400 font-bold animate-pulse">
+            Menyiapkan Laporan...
           </p>
         </div>
+      ) : (
+        <>
+          {/* BARIS 1: KARTU STATISTIK (KPI CARDS) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Card Pendapatan */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
+              <div className="w-16 h-16 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
+                <TrendUp size={32} weight="bold" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  Total Pendapatan
+                </p>
+                <h3 className="text-2xl font-black text-zinc-800">
+                  Rp {summary.revenue.toLocaleString("id-ID")}
+                </h3>
+              </div>
+            </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 border-l-4 border-l-blue-500">
-          <h3 className="text-zinc-500 font-medium mb-1">Transaksi Hari Ini</h3>
-          <p className="text-3xl font-extrabold text-gray-800">
-            {stats?.transactions_today || 0}{" "}
-            <span className="text-sm font-normal text-gray-400">Order</span>
-          </p>
-        </div>
+            {/* Card Transaksi */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
+              <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Receipt size={32} weight="bold" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  Total Transaksi
+                </p>
+                <h3 className="text-2xl font-black text-zinc-800">
+                  {summary.transactions_count} Struk
+                </h3>
+              </div>
+            </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 border-l-4 border-l-green-500">
-          <h3 className="text-zinc-500 font-medium mb-1">
-            Total Pendapatan (All Time)
-          </h3>
-          <p className="text-3xl font-extrabold text-gray-800">
-            {formatRupiah(stats?.total_income || 0)}
-          </p>
-        </div>
-      </div>
+            {/* Card Menu Terlaris */}
+            <div className="bg-orange-600 p-6 rounded-3xl shadow-lg shadow-orange-600/20 text-white flex items-center gap-5 relative overflow-hidden">
+              <ChartBar
+                size={120}
+                weight="duotone"
+                className="absolute -right-6 -bottom-6 opacity-20"
+              />
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center z-10 backdrop-blur-sm">
+                <Coffee size={32} weight="fill" />
+              </div>
+              <div className="z-10">
+                <p className="text-sm font-bold text-orange-200 uppercase tracking-wider mb-1">
+                  Menu Paling Laris
+                </p>
+                <h3 className="text-2xl font-black truncate max-w-[180px]">
+                  {bestSeller}
+                </h3>
+              </div>
+            </div>
+          </div>
 
-      {/* TABEL RIWAYAT TRANSAKSI */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">
-            10 Transaksi Terakhir
-          </h2>
-        </div>
+          {/* BARIS 2: GRAFIK & TABEL RIWAYAT */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* BAGIAN KIRI: TABEL DETAIL TRANSAKSI (Besar) */}
+            <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
+                <h2 className="text-lg font-black text-zinc-800 flex items-center gap-2">
+                  <Receipt size={24} className="text-zinc-400" /> Riwayat
+                  Transaksi
+                </h2>
+              </div>
+              <div className="overflow-x-auto flex-1 p-4">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-zinc-400 uppercase tracking-wider border-b border-zinc-100">
+                      <th className="p-3 font-bold">Waktu</th>
+                      <th className="p-3 font-bold">No. Invoice</th>
+                      <th className="p-3 font-bold text-right">Total Bayar</th>
+                      <th className="p-3 font-bold text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {transactions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="p-8 text-center text-zinc-400 font-bold"
+                        >
+                          Belum ada transaksi di periode ini
+                        </td>
+                      </tr>
+                    ) : (
+                      transactions.map((tx) => (
+                        <tr
+                          key={tx.id}
+                          className="hover:bg-zinc-50 transition-colors"
+                        >
+                          <td className="p-3 text-zinc-500 font-medium">
+                            {new Date(tx.created_at).toLocaleString("id-ID", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </td>
+                          <td className="p-3 font-bold text-zinc-800">
+                            #{tx.invoice} || `INV-$
+                            {String(tx.id).padStart(4, "0")}
+                          </td>
+                          <td className="p-3 font-black text-orange-600 text-right">
+                            Rp {Number(tx.total_price).toLocaleString("id-ID")}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => setSelectedInvoice(tx)}
+                              className="text-xs font-bold bg-zinc-100 text-zinc-600 hover:bg-zinc-900 hover:text-white px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
+                            >
+                              Lihat Struk
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-zinc-50 text-zinc-500 text-sm border-b">
-                <th className="p-4 font-semibold">Nomor Invoice</th>
-                <th className="p-4 font-semibold">Waktu</th>
-                <th className="p-4 font-semibold">Kasir</th>
-                <th className="p-4 font-semibold">Total Belanja</th>
-                <th className="p-4 font-semibold text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-zinc-400">
-                    Belum ada transaksi hari ini.
-                  </td>
-                </tr>
+            {/* BAGIAN KANAN: GRAFIK MENU TERLARIS (Kecil) */}
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-6 flex flex-col items-center">
+              <h2 className="text-lg font-black text-zinc-800 w-full mb-6 flex items-center gap-2">
+                <ChartBar size={24} className="text-orange-500" /> Porsi
+                Penjualan Menu
+              </h2>
+              {pieData.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-zinc-400 font-bold">
+                  Data tidak tersedia
+                </div>
               ) : (
-                recentTransactions.map((trx, index) => (
-                  <tr
-                    key={trx.id}
-                    className={`border-b border-gray-50 hover:bg-orange-50/50 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-zinc-50/30"}`}
-                  >
-                    <td className="p-4 font-medium text-gray-800">
-                      {trx.invoice_number}
-                    </td>
-                    <td className="p-4 text-gray-600 text-sm">
-                      {new Date(trx.created_at).toLocaleString("id-ID", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <td className="p-4 text-gray-600">
-                      {trx.user?.name || "Sistem"}
-                    </td>
-                    <td className="p-4 font-bold text-gray-800">
-                      {formatRupiah(trx.total_price)}
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                        Lunas
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                <div className="w-full h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieData.map((_entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [`${value} Porsi`, "Terjual"]}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        wrapperStyle={{ fontSize: "12px", fontWeight: "bold" }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* =========================================
+                🔥 MODAL: STRUK KASIR DIGITAL (ANTI-NaN)
+            ============================================= */}
+      {selectedInvoice &&
+        (() => {
+          // 1. Amankan data uang (Kalau kosong, otomatis 0 atau menyesuaikan)
+          const totalBelanja = Number(selectedInvoice.total_price) || 0;
+          // Coba ambil dari pay_amount, kalau nggak ada anggap bayar pas (tunai = total)
+          const tunai =
+            Number(selectedInvoice.pay_amount || selectedInvoice.amount_paid) ||
+            totalBelanja;
+          const kembalian = tunai > totalBelanja ? tunai - totalBelanja : 0;
+
+          // 2. Amankan nomor invoice
+          const noInvoice =
+            selectedInvoice.invoice && String(selectedInvoice.invoice) !== "NaN"
+              ? selectedInvoice.invoice
+              : `INV-${String(selectedInvoice.id).padStart(4, "0")}`;
+
+          return (
+            <div className="fixed inset-0 bg-zinc-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col font-mono text-sm relative">
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="absolute top-4 right-4 text-zinc-400 hover:text-red-500 bg-zinc-100 rounded-full p-1"
+                >
+                  <X size={20} weight="bold" />
+                </button>
+
+                <div className="p-8 pb-4">
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">
+                      KOPI KITA
+                    </h2>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      Jl. Ngoding Bersama No. 99
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between text-xs text-zinc-600 mb-2 border-b border-dashed border-zinc-300 pb-2">
+                    <div>
+                      <p>
+                        Tgl:{" "}
+                        {new Date(
+                          selectedInvoice.created_at,
+                        ).toLocaleDateString("id-ID")}
+                      </p>
+                      <p>
+                        Jam:{" "}
+                        {new Date(
+                          selectedInvoice.created_at,
+                        ).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p>Inv: #{noInvoice}</p>
+                      <p>Kasir: Sistem</p>
+                    </div>
+                  </div>
+
+                  {/* Daftar Pesanan */}
+                  <div className="my-4 space-y-3">
+                    {selectedInvoice.details?.map((item: any, idx: number) => {
+                      // Cari harga di tabel detail, kalau kosong tarik dari tabel produknya
+                      const hargaItem = Number(
+                        item.price || item.product?.price || 0,
+                      );
+                      return (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-start"
+                        >
+                          <div className="flex-1 pr-4">
+                            <p className="font-bold text-zinc-800">
+                              {item.product?.name || "Item Dihapus"}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              {item.quantity} x Rp{" "}
+                              {hargaItem.toLocaleString("id-ID")}
+                            </p>
+                          </div>
+                          <p className="font-bold text-zinc-800">
+                            Rp{" "}
+                            {(item.quantity * hargaItem).toLocaleString(
+                              "id-ID",
+                            )}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Totalan */}
+                  <div className="border-t border-dashed border-zinc-300 pt-3 space-y-1">
+                    <div className="flex justify-between text-zinc-600 font-bold">
+                      <p>Total Belanja</p>
+                      <p>Rp {totalBelanja.toLocaleString("id-ID")}</p>
+                    </div>
+                    <div className="flex justify-between text-zinc-600">
+                      <p>Tunai</p>
+                      <p>Rp {tunai.toLocaleString("id-ID")}</p>
+                    </div>
+                    <div className="flex justify-between text-zinc-800 font-black text-base mt-2 pt-2 border-t border-zinc-200">
+                      <p>KEMBALIAN</p>
+                      <p>Rp {kembalian.toLocaleString("id-ID")}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-center mt-8 text-xs text-zinc-500 font-bold">
+                    <p>Terima Kasih</p>
+                    <p>Selamat Menikmati Kopi Kami!</p>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-50 border-t border-zinc-200 p-4 flex justify-center gap-4 font-sans">
+                  <button className="flex items-center gap-2 px-6 py-2 bg-zinc-900 text-white font-bold rounded-xl hover:bg-orange-600 transition-colors">
+                    <Printer size={18} weight="bold" /> Cetak Struk
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

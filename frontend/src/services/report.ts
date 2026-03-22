@@ -2,13 +2,20 @@ import axios from "axios";
 
 const API_URL = "http://localhost:8000/api";
 
-export const getDashboardStats = async () => {
-  // Ambil token dari storage karena rute ini butuh login
+const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
+  return { headers: { Authorization: `Bearer ${token}` } };
+};
 
-  const response = await axios.get(`${API_URL}/reports/dashboard`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return response.data; // Mengembalikan object { stats: ..., recent_transactions: ... }
+// Tambahkan parameter `date` (opsional)
+export const getDashboardStats = async (
+  filter: string = "today",
+  customDate?: string,
+) => {
+  let url = `${API_URL}/reports/dashboard?filter=${filter}`;
+  if (customDate) {
+    url += `&date=${customDate}`;
+  }
+  const response = await axios.get(url, getAuthHeaders());
+  return response.data;
 };
