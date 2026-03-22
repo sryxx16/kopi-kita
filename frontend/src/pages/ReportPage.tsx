@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { getDashboardStats } from "../services/report";
+import { getDashboardStats, exportDashboardExcel } from "../services/report";
+import { voidTransaction } from "../services/transaction";
 import {
   ChartBar,
   Receipt,
   TrendUp,
+  TrendDown,
   CalendarBlank,
   X,
   Printer,
   Coffee,
-  FloppyDisk, // <-- Sudah ditambahkan importnya di sini bang
+  FloppyDisk,
+  Trash,
 } from "phosphor-react";
 import {
   PieChart,
@@ -25,29 +28,36 @@ import {
 } from "recharts";
 
 export default function ReportPage() {
+  // State untuk filter dan loading
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("today");
   const [customDate, setCustomDate] = useState("");
 
-  // State Data dari API
-  const [summary, setSummary] = useState({ revenue: 0, transactions_count: 0 });
+  // State untuk data dari API (Ditambah any agar TS tidak error saat baca revenue_change)
+  const [summary, setSummary] = useState<any>({
+    revenue: 0,
+    transactions_count: 0,
+    revenue_change: 0,
+    transactions_count_change: 0,
+  });
   const [transactions, setTransactions] = useState<any[]>([]);
   const [hourlyData, setHourlyData] = useState<any[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // State untuk Modal Struk Digital
+  // State untuk modal struk digital
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
 
+  // Fungsi untuk mengambil data laporan
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // Kirim customDate kalau filternya 'custom'
       const data = await getDashboardStats(
         filter,
         filter === "custom" ? customDate : undefined,
       );
       setSummary(data.summary);
       setTransactions(data.transactions);
-      setHourlyData(data.hourly_analysis || []); // Set data jam (fallback array kosong)
+      setHourlyData(data.hourly_analysis || []);
     } catch (error) {
       console.error("Gagal mengambil laporan:", error);
     } finally {
@@ -55,13 +65,57 @@ export default function ReportPage() {
     }
   };
 
-  // Refresh kalau filter ATAU tanggalnya berubah
-  useEffect(() => {
-    if (filter === "custom" && !customDate) return;
-    fetchReports();
-  }, [filter, customDate]);
+  // Fungsi untuk void transaksi
+  const handleVoid = async (id: number, invoice: string) => {
+    const isConfirm = window.confirm(
+      `🚨 PERINGATAN VOID TRANSAKSI 🚨\n\nApakah Anda yakin ingin membatalkan transaksi #${invoice}?\nSemua stok produk pada struk ini akan dikembalikan secara otomatis.`,
+    );
 
-  // OLAH DATA UNTUK GRAFIK (Cari 5 Menu Terlaris)
+    if (isConfirm) {
+      try {
+        await voidTransaction(id);
+        alert(
+          `Transaksi #${invoice} berhasil di-void! Stok telah dikembalikan.`,
+        );
+        fetchReports(); // Refresh data setelah dihapus
+      } catch (error) {
+        alert("Gagal melakukan Void transaksi.");
+      }
+    }
+  };
+
+  // Fungsi canggih untuk download file Excel tanpa buka tab baru
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      // 1. Download file-nya ke memori browser (sebagai Blob)
+      const blobData = await exportDashboardExcel(
+        filter,
+        filter === "custom" ? customDate : undefined,
+      );
+
+      // 2. Bikin URL lokal dari blob tersebut
+      const url = window.URL.createObjectURL(new Blob([blobData]));
+
+      // 3. Bikin elemen link <a> gaib untuk memicu download otomatis
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Laporan_Kopi_Kita_${filter}.xlsx`); // Nama file otomatis
+      document.body.appendChild(link);
+      link.click(); // Klik linknya secara otomatis
+
+      // 4. Bersihkan sisa-sisa elemen gaibnya
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Gagal export:", error);
+      alert("Gagal mengunduh file Excel.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Fungsi untuk mendapatkan data produk terlaris
   const getTopProducts = () => {
     const productSales: Record<string, number> = {};
     transactions.forEach((tx) => {
@@ -77,9 +131,15 @@ export default function ReportPage() {
       .slice(0, 5);
   };
 
+  // Effect untuk refresh data saat filter berubah
+  useEffect(() => {
+    if (filter === "custom" && !customDate) return;
+    fetchReports();
+  }, [filter, customDate]);
+
+  // Data untuk grafik
   const pieData = getTopProducts();
   const COLORS = ["#ea580c", "#f97316", "#fb923c", "#fdba74", "#ffedd5"];
-
   const bestSeller = pieData.length > 0 ? pieData[0].name : "-";
 
   return (
@@ -98,19 +158,19 @@ export default function ReportPage() {
         <div className="flex flex-col md:flex-row items-center gap-3">
           {/* Tombol Export Excel */}
           <button
-            onClick={() => {
-              const token = localStorage.getItem("token");
-              window.open(
-                `http://localhost:8000/api/reports/export-excel?filter=${filter}&date=${customDate}&token=${token}`,
-                "_blank",
-              );
-            }}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-green-600/20 transition-all text-sm"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className={`flex items-center gap-2 font-bold py-2.5 px-5 rounded-xl shadow-lg transition-all text-sm ${
+              isExporting
+                ? "bg-zinc-400 text-zinc-100 cursor-wait"
+                : "bg-green-600 hover:bg-green-700 text-white shadow-green-600/20"
+            }`}
           >
             <FloppyDisk size={20} weight="bold" />
-            Ekspor Excel
+            {isExporting ? "Menyiapkan..." : "Ekspor Excel"}
           </button>
 
+          {/* Filter Periode */}
           <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-zinc-200 shadow-sm">
             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
               <CalendarBlank size={20} weight="bold" />
@@ -130,6 +190,7 @@ export default function ReportPage() {
             </select>
           </div>
 
+          {/* Input Tanggal Custom */}
           {filter === "custom" && (
             <input
               type="date"
@@ -149,9 +210,10 @@ export default function ReportPage() {
         </div>
       ) : (
         <>
-          {/* BARIS 1: KPI CARDS */}
+          {/* KARTU STATISTIK (KPI CARDS) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
+            {/* Card Pendapatan */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all relative">
               <div className="w-16 h-16 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
                 <TrendUp size={32} weight="bold" />
               </div>
@@ -160,12 +222,24 @@ export default function ReportPage() {
                   Total Pendapatan
                 </p>
                 <h3 className="text-2xl font-black text-zinc-800">
-                  Rp {summary.revenue.toLocaleString("id-ID")}
+                  Rp {summary.revenue?.toLocaleString("id-ID") || 0}
                 </h3>
+              </div>
+              {/* Indikator Perbandingan */}
+              <div
+                className={`absolute top-6 right-6 flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${summary.revenue_change >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+              >
+                {summary.revenue_change >= 0 ? (
+                  <TrendUp weight="bold" />
+                ) : (
+                  <TrendDown weight="bold" />
+                )}
+                {Math.abs(summary.revenue_change || 0)}%
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
+            {/* Card Transaksi */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all relative">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Receipt size={32} weight="bold" />
               </div>
@@ -174,11 +248,23 @@ export default function ReportPage() {
                   Total Transaksi
                 </p>
                 <h3 className="text-2xl font-black text-zinc-800">
-                  {summary.transactions_count} Struk
+                  {summary.transactions_count || 0} Struk
                 </h3>
+              </div>
+              {/* Indikator Perbandingan */}
+              <div
+                className={`absolute top-6 right-6 flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${summary.transactions_count_change >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+              >
+                {summary.transactions_count_change >= 0 ? (
+                  <TrendUp weight="bold" />
+                ) : (
+                  <TrendDown weight="bold" />
+                )}
+                {Math.abs(summary.transactions_count_change || 0)}%
               </div>
             </div>
 
+            {/* Card Menu Terlaris */}
             <div className="bg-orange-600 p-6 rounded-3xl shadow-lg shadow-orange-600/20 text-white flex items-center gap-5 relative overflow-hidden">
               <ChartBar
                 size={120}
@@ -252,12 +338,28 @@ export default function ReportPage() {
                             Rp {Number(tx.total_price).toLocaleString("id-ID")}
                           </td>
                           <td className="p-3 text-center">
-                            <button
-                              onClick={() => setSelectedInvoice(tx)}
-                              className="text-xs font-bold bg-zinc-100 text-zinc-600 hover:bg-zinc-900 hover:text-white px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
-                            >
-                              Lihat Struk
-                            </button>
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => setSelectedInvoice(tx)}
+                                className="text-xs font-bold bg-zinc-100 text-zinc-600 hover:bg-zinc-900 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                Lihat
+                              </button>
+                              {/* 🔥 TOMBOL VOID */}
+                              <button
+                                onClick={() =>
+                                  handleVoid(
+                                    tx.id,
+                                    tx.invoice ||
+                                      `INV-${String(tx.id).padStart(4, "0")}`,
+                                  )
+                                }
+                                title="Void Transaksi"
+                                className="text-xs font-bold bg-red-50 text-red-500 hover:bg-red-600 hover:text-white p-1.5 rounded-lg transition-colors flex items-center"
+                              >
+                                <Trash size={16} weight="bold" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -311,7 +413,7 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* BARIS 3: ANALISIS JAM TERAMAI */}
+          {/* BARIS 3: GRAFIK JAM TERAMAI */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-6 mt-8">
             <h2 className="text-lg font-black text-zinc-800 mb-6 flex items-center gap-2">
               <ChartBar size={24} className="text-blue-500" /> Analisis Jam
@@ -358,9 +460,10 @@ export default function ReportPage() {
         </>
       )}
 
-      {/* MODAL: STRUK KASIR DIGITAL */}
+      {/* MODAL STRUK DIGITAL */}
       {selectedInvoice &&
         (() => {
+          // Hitung data untuk struk
           const totalBelanja = Number(selectedInvoice.total_price) || 0;
           const tunai =
             Number(selectedInvoice.pay_amount || selectedInvoice.amount_paid) ||
@@ -374,6 +477,7 @@ export default function ReportPage() {
           return (
             <div className="fixed inset-0 bg-zinc-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col font-mono text-sm relative">
+                {/* Tombol Tutup */}
                 <button
                   onClick={() => setSelectedInvoice(null)}
                   className="absolute top-4 right-4 text-zinc-400 hover:text-red-500 bg-zinc-100 rounded-full p-1"
@@ -381,6 +485,7 @@ export default function ReportPage() {
                   <X size={20} weight="bold" />
                 </button>
 
+                {/* Header Struk */}
                 <div className="p-8 pb-4">
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">
@@ -391,6 +496,7 @@ export default function ReportPage() {
                     </p>
                   </div>
 
+                  {/* Info Transaksi */}
                   <div className="flex justify-between text-xs text-zinc-600 mb-2 border-b border-dashed border-zinc-300 pb-2">
                     <div>
                       <p>
@@ -415,6 +521,7 @@ export default function ReportPage() {
                     </div>
                   </div>
 
+                  {/* Daftar Item */}
                   <div className="my-4 space-y-3">
                     {selectedInvoice.details?.map((item: any, idx: number) => {
                       const hargaItem = Number(
@@ -445,6 +552,7 @@ export default function ReportPage() {
                     })}
                   </div>
 
+                  {/* Total dan Pembayaran */}
                   <div className="border-t border-dashed border-zinc-300 pt-3 space-y-1">
                     <div className="flex justify-between text-zinc-600 font-bold">
                       <p>Total Belanja</p>
@@ -460,12 +568,14 @@ export default function ReportPage() {
                     </div>
                   </div>
 
+                  {/* Footer Struk */}
                   <div className="text-center mt-8 text-xs text-zinc-500 font-bold">
                     <p>Terima Kasih</p>
                     <p>Selamat Menikmati Kopi Kami!</p>
                   </div>
                 </div>
 
+                {/* Tombol Aksi */}
                 <div className="bg-zinc-50 border-t border-zinc-200 p-4 flex justify-center gap-4 font-sans">
                   <button className="flex items-center gap-2 px-6 py-2 bg-zinc-900 text-white font-bold rounded-xl hover:bg-orange-600 transition-colors">
                     <Printer size={18} weight="bold" /> Cetak Struk

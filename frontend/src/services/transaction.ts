@@ -14,3 +14,14 @@ export const checkout = async (items: any[], amountPaid: number) => {
 
   return response.data;
 };
+
+export const voidTransaction = async (id: number) => {
+  const token = localStorage.getItem("token");
+  const response = await axios.delete(
+    `http://localhost:8000/api/transactions/${id}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return response.data;
+};

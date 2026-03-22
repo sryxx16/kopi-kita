@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // RUTE BARU: Bulk Update & Riwayat Stok
     Route::post('/products/bulk-stock', [ProductController::class, 'bulkUpdateStock']);
     Route::get('/stock-logs', [ProductController::class, 'stockLogs']);
-});
 
-Route::get('/reports/export-excel', [ReportController::class, 'exportExcel']);
+    Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
+    Route::get('/reports/export-excel', [ReportController::class, 'exportExcel']);
+});

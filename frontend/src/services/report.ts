@@ -19,3 +19,19 @@ export const getDashboardStats = async (
   const response = await axios.get(url, getAuthHeaders());
   return response.data;
 };
+export const exportDashboardExcel = async (
+  filter: string = "today",
+  customDate?: string,
+) => {
+  let url = `${API_URL}/reports/export-excel?filter=${filter}`;
+  if (customDate) {
+    url += `&date=${customDate}`;
+  }
+
+  // Perhatikan tambahan 'responseType: blob' ini sangat penting buat file!
+  const response = await axios.get(url, {
+    ...getAuthHeaders(),
+    responseType: "blob",
+  });
+  return response.data;
+};

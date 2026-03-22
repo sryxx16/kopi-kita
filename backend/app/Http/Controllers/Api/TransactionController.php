@@ -9,6 +9,7 @@ use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\StockLog;
 
 class TransactionController extends Controller
 {
@@ -87,5 +88,38 @@ class TransactionController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    // 🔥 FITUR BARU: VOID TRANSAKSI
+    public function destroy($id)
+    {
+        $transaction = Transaction::with('details')->findOrFail($id);
+
+        // 1. Kembalikan Stok Produk
+        foreach ($transaction->details as $detail) {
+            $product = Product::find($detail->product_id);
+            if ($product) {
+                $oldStock = $product->stock;
+                $newStock = $oldStock + $detail->quantity; // Tambah balik stoknya
+
+                $product->update(['stock' => $newStock]);
+
+                // 2. Catat ke Log Riwayat Stok
+                StockLog::create([
+                    'product_id' => $product->id,
+                    'user_id' => auth()->id(), // Kasir/Admin yang nge-void
+                    'old_stock' => $oldStock,
+                    'new_stock' => $newStock,
+                    'changed_amount' => $detail->quantity,
+                    'type' => 'void_transaction' // Keterangan log
+                ]);
+            }
+        }
+
+        // 3. Hapus Detail Struk dan Transaksi Utamanya
+        $transaction->details()->delete();
+        $transaction->delete();
+
+        return response()->json(['message' => 'Transaksi berhasil di-void. Stok telah dikembalikan!'], 200);
     }
 }
