@@ -7,30 +7,51 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\CategoryController;
 
-// Route untuk Login (Bisa diakses tanpa token)
+/*
+|--------------------------------------------------------------------------
+| Public Routes
+|--------------------------------------------------------------------------
+*/
 Route::post('/login', [AuthController::class, 'login']);
 
-// Route yang dilindungi (Harus bawa token dari login)
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (Must be logged in)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
+
+    // User Profile
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    // Categories
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::post('/categories', [CategoryController::class, 'store']);
+
+    // Products (CRUD & Status)
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::post('/products', [ProductController::class, 'store']);
+    Route::post('/products/bulk-stock', [ProductController::class, 'bulkUpdateStock']);
+    Route::post('/products/{id}', [ProductController::class, 'update']);
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::patch('/products/{id}/status', [ProductController::class, 'toggleStatus']);
+
+    // Transactions & Reports
+    Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::get('/reports/dashboard', [ReportController::class, 'dashboardStats']);
+
+    // Employee Management (Users)
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+
+    // Logout (Opsional, tapi disarankan ada)
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    // RUTE BARU: Bulk Update & Riwayat Stok
+    Route::post('/products/bulk-stock', [ProductController::class, 'bulkUpdateStock']);
+    Route::get('/stock-logs', [ProductController::class, 'stockLogs']);
 });
-//api produk
-Route::get('/products', [ProductController::class, 'index']);
-Route::post('/products', [ProductController::class, 'store']); // <--- Jalur baru buat nambah menu!
-
-//api transaksi
-Route::post('/transactions', [TransactionController::class, 'store']);
-Route::get('/reports/dashboard', [ReportController::class, 'dashboardStats']);
-
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-});
-//api karyawan
-Route::get('/users', [UserController::class, 'index']);
-Route::post('/users', [UserController::class, 'store']);

@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class Product extends Model
 {
     use HasFactory;
+
+    // Ini artinya semua kolom boleh diisi (mass-assignment)
     protected $guarded = [];
 
-    // Satu produk dimiliki oleh satu kategori
     public function category()
     {
         return $this->belongsTo(Category::class);
