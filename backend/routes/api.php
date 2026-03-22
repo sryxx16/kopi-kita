@@ -47,6 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Employee Management (Users)
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/users', [UserController::class, 'store']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
     // Logout (Opsional, tapi disarankan ada)
     Route::post('/logout', [AuthController::class, 'logout']);
