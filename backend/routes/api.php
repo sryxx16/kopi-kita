@@ -55,3 +55,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/products/bulk-stock', [ProductController::class, 'bulkUpdateStock']);
     Route::get('/stock-logs', [ProductController::class, 'stockLogs']);
 });
+
+Route::get('/reports/export-excel', [ReportController::class, 'exportExcel']);

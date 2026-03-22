@@ -8,6 +8,7 @@ import {
   X,
   Printer,
   Coffee,
+  FloppyDisk, // <-- Sudah ditambahkan importnya di sini bang
 } from "phosphor-react";
 import {
   PieChart,
@@ -16,6 +17,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 
 export default function ReportPage() {
@@ -26,6 +32,7 @@ export default function ReportPage() {
   // State Data dari API
   const [summary, setSummary] = useState({ revenue: 0, transactions_count: 0 });
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [hourlyData, setHourlyData] = useState<any[]>([]);
 
   // State untuk Modal Struk Digital
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -40,6 +47,7 @@ export default function ReportPage() {
       );
       setSummary(data.summary);
       setTransactions(data.transactions);
+      setHourlyData(data.hourly_analysis || []); // Set data jam (fallback array kosong)
     } catch (error) {
       console.error("Gagal mengambil laporan:", error);
     } finally {
@@ -49,14 +57,9 @@ export default function ReportPage() {
 
   // Refresh kalau filter ATAU tanggalnya berubah
   useEffect(() => {
-    if (filter === "custom" && !customDate) return; // Jangan fetch kalau tanggal belum dipilih
+    if (filter === "custom" && !customDate) return;
     fetchReports();
   }, [filter, customDate]);
-
-  // Auto-refresh tiap kali filter diganti
-  useEffect(() => {
-    fetchReports();
-  }, [filter]);
 
   // OLAH DATA UNTUK GRAFIK (Cari 5 Menu Terlaris)
   const getTopProducts = () => {
@@ -68,7 +71,6 @@ export default function ReportPage() {
       });
     });
 
-    // Ubah jadi array, urutkan, ambil top 5
     return Object.entries(productSales)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
@@ -76,9 +78,8 @@ export default function ReportPage() {
   };
 
   const pieData = getTopProducts();
-  const COLORS = ["#ea580c", "#f97316", "#fb923c", "#fdba74", "#ffedd5"]; // Gradasi Orange
+  const COLORS = ["#ea580c", "#f97316", "#fb923c", "#fdba74", "#ffedd5"];
 
-  // Bantuan untuk hitung menu terlaris nomor 1 buat ditampilkan di Card
   const bestSeller = pieData.length > 0 ? pieData[0].name : "-";
 
   return (
@@ -94,8 +95,22 @@ export default function ReportPage() {
           </p>
         </div>
 
-        {/* AREA FILTER WAKTU & KALENDER */}
         <div className="flex flex-col md:flex-row items-center gap-3">
+          {/* Tombol Export Excel */}
+          <button
+            onClick={() => {
+              const token = localStorage.getItem("token");
+              window.open(
+                `http://localhost:8000/api/reports/export-excel?filter=${filter}&date=${customDate}&token=${token}`,
+                "_blank",
+              );
+            }}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-green-600/20 transition-all text-sm"
+          >
+            <FloppyDisk size={20} weight="bold" />
+            Ekspor Excel
+          </button>
+
           <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-zinc-200 shadow-sm">
             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
               <CalendarBlank size={20} weight="bold" />
@@ -104,24 +119,23 @@ export default function ReportPage() {
               value={filter}
               onChange={(e) => {
                 setFilter(e.target.value);
-                if (e.target.value !== "custom") setCustomDate(""); // Reset tanggal kalau milih yg lain
+                if (e.target.value !== "custom") setCustomDate("");
               }}
-              className="bg-transparent font-bold text-zinc-700 outline-none cursor-pointer pr-4"
+              className="bg-transparent font-bold text-zinc-700 outline-none cursor-pointer pr-4 text-sm"
             >
               <option value="today">Hari Ini</option>
               <option value="7days">7 Hari Terakhir</option>
               <option value="month">Bulan Ini</option>
-              <option value="custom">Pilih Tanggal...</option> {/* OPSI BARU */}
+              <option value="custom">Pilih Tanggal...</option>
             </select>
           </div>
 
-          {/* INPUT KALENDER (MUNCUL KALAU PILIH "Pilih Tanggal...") */}
           {filter === "custom" && (
             <input
               type="date"
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
-              className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-orange-500 animate-fade-in"
+              className="bg-white p-2.5 rounded-xl border border-zinc-200 shadow-sm font-bold text-zinc-700 text-sm outline-none focus:ring-2 focus:ring-orange-500 animate-fade-in"
             />
           )}
         </div>
@@ -135,9 +149,8 @@ export default function ReportPage() {
         </div>
       ) : (
         <>
-          {/* BARIS 1: KARTU STATISTIK (KPI CARDS) */}
+          {/* BARIS 1: KPI CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* Card Pendapatan */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
               <div className="w-16 h-16 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
                 <TrendUp size={32} weight="bold" />
@@ -152,7 +165,6 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* Card Transaksi */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex items-center gap-5 hover:shadow-md transition-all">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Receipt size={32} weight="bold" />
@@ -167,7 +179,6 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* Card Menu Terlaris */}
             <div className="bg-orange-600 p-6 rounded-3xl shadow-lg shadow-orange-600/20 text-white flex items-center gap-5 relative overflow-hidden">
               <ChartBar
                 size={120}
@@ -188,9 +199,8 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* BARIS 2: GRAFIK & TABEL RIWAYAT */}
+          {/* BARIS 2: TABEL & PIE CHART */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* BAGIAN KIRI: TABEL DETAIL TRANSAKSI (Besar) */}
             <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col">
               <div className="p-6 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
                 <h2 className="text-lg font-black text-zinc-800 flex items-center gap-2">
@@ -233,8 +243,10 @@ export default function ReportPage() {
                             })}
                           </td>
                           <td className="p-3 font-bold text-zinc-800">
-                            #{tx.invoice} || `INV-$
-                            {String(tx.id).padStart(4, "0")}
+                            #
+                            {tx.invoice && String(tx.invoice) !== "NaN"
+                              ? tx.invoice
+                              : `INV-${String(tx.id).padStart(4, "0")}`}
                           </td>
                           <td className="p-3 font-black text-orange-600 text-right">
                             Rp {Number(tx.total_price).toLocaleString("id-ID")}
@@ -255,11 +267,10 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* BAGIAN KANAN: GRAFIK MENU TERLARIS (Kecil) */}
             <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-6 flex flex-col items-center">
               <h2 className="text-lg font-black text-zinc-800 w-full mb-6 flex items-center gap-2">
                 <ChartBar size={24} className="text-orange-500" /> Porsi
-                Penjualan Menu
+                Penjualan
               </h2>
               {pieData.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-zinc-400 font-bold">
@@ -299,23 +310,62 @@ export default function ReportPage() {
               )}
             </div>
           </div>
+
+          {/* BARIS 3: ANALISIS JAM TERAMAI */}
+          <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-6 mt-8">
+            <h2 className="text-lg font-black text-zinc-800 mb-6 flex items-center gap-2">
+              <ChartBar size={24} className="text-blue-500" /> Analisis Jam
+              Teramai
+            </h2>
+            <div className="w-full h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourlyData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#f4f4f5"
+                  />
+                  <XAxis
+                    dataKey="hour"
+                    tickFormatter={(hour) => `${hour}:00`}
+                    tick={{ fontSize: 12, fontWeight: "bold" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f8fafc" }}
+                    formatter={(value) => [`${value} Transaksi`, "Jumlah"]}
+                    labelFormatter={(hour) => `Jam ${hour}:00`}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="#3b82f6"
+                    radius={[6, 6, 0, 0]}
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-center text-xs text-zinc-400 mt-4 font-medium italic">
+              * Data menunjukkan frekuensi transaksi pelanggan berdasarkan waktu
+            </p>
+          </div>
         </>
       )}
 
-      {/* =========================================
-                🔥 MODAL: STRUK KASIR DIGITAL (ANTI-NaN)
-            ============================================= */}
+      {/* MODAL: STRUK KASIR DIGITAL */}
       {selectedInvoice &&
         (() => {
-          // 1. Amankan data uang (Kalau kosong, otomatis 0 atau menyesuaikan)
           const totalBelanja = Number(selectedInvoice.total_price) || 0;
-          // Coba ambil dari pay_amount, kalau nggak ada anggap bayar pas (tunai = total)
           const tunai =
             Number(selectedInvoice.pay_amount || selectedInvoice.amount_paid) ||
             totalBelanja;
           const kembalian = tunai > totalBelanja ? tunai - totalBelanja : 0;
-
-          // 2. Amankan nomor invoice
           const noInvoice =
             selectedInvoice.invoice && String(selectedInvoice.invoice) !== "NaN"
               ? selectedInvoice.invoice
@@ -365,10 +415,8 @@ export default function ReportPage() {
                     </div>
                   </div>
 
-                  {/* Daftar Pesanan */}
                   <div className="my-4 space-y-3">
                     {selectedInvoice.details?.map((item: any, idx: number) => {
-                      // Cari harga di tabel detail, kalau kosong tarik dari tabel produknya
                       const hargaItem = Number(
                         item.price || item.product?.price || 0,
                       );
@@ -397,7 +445,6 @@ export default function ReportPage() {
                     })}
                   </div>
 
-                  {/* Totalan */}
                   <div className="border-t border-dashed border-zinc-300 pt-3 space-y-1">
                     <div className="flex justify-between text-zinc-600 font-bold">
                       <p>Total Belanja</p>
