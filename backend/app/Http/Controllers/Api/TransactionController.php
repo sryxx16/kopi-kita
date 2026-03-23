@@ -21,20 +21,21 @@ class TransactionController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'amount_paid' => 'required|numeric|min:0',
+            'total_price' => 'required|numeric|min:0', // Total setelah diskon + tax dari frontend
         ]);
 
         try {
             // 2. MULAI DATABASE TRANSACTION (Penting! Agar data aman kalau ada error)
             DB::beginTransaction();
 
-            $totalPrice = 0;
+            // Gunakan total_price dari frontend (sudah termasuk diskon & tax)
+            $totalPrice = $request->total_price;
             $details = [];
 
-            // 3. Hitung harga ASLI dari database, jangan pakai harga kiriman frontend
+            // 3. Simpan detail items (untuk invoice & stock tracking)
             foreach ($request->items as $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $subtotal = $product->price * $item['quantity'];
-                $totalPrice += $subtotal;
 
                 // Tampung dulu data detailnya
                 $details[] = [
@@ -44,7 +45,7 @@ class TransactionController extends Controller
                 ];
             }
 
-            // 4. Cek apakah uang bayar cukup
+            // 4. Cek apakah uang bayar cukup (dengan total_price dari frontend yang sudah include diskon)
             if ($request->amount_paid < $totalPrice) {
                 return response()->json(['message' => 'Uang pembayaran kurang!'], 400);
             }
