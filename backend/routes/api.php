@@ -8,6 +8,9 @@ use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\RawMaterialController;
+use App\Http\Controllers\PromoController;
+use App\Http\Controllers\SettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,4 +62,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
     Route::get('/reports/export-excel', [ReportController::class, 'exportExcel']);
+
+    //api inventaris
+    Route::apiResource('inventory', RawMaterialController::class);
+
+    //api promo
+    Route::apiResource('promos', PromoController::class);
+
+    // Rute Pengaturan
+    Route::get('/settings', [SettingController::class, 'index']);
+    Route::put('/settings', [SettingController::class, 'update']);
 });

@@ -5,6 +5,10 @@ import CashierPage from "./pages/CashierPage";
 import ReportPage from "./pages/ReportPage";
 import MainLayout from "./components/MainLayout";
 import KaryawanPage from "./pages/KaryawanPage";
+import DashboardStatistik from "./pages/DashboardStatistik";
+import InventarisPage from "./pages/InventarisPage";
+import PromoPage from "./pages/PromoPage";
+import PengaturanPage from "./pages/PengaturanPage";
 
 // Komponen Sementara untuk halaman yang belum dibuat
 const DummyPage = ({ title }: { title: string }) => (
@@ -50,7 +54,7 @@ function App() {
           element={
             <AdminRoute>
               <MainLayout>
-                <DummyPage title="Dashboard Statistik" />
+                <DashboardStatistik /> {/* <-- Ganti DummyPage jadi ini */}
               </MainLayout>
             </AdminRoute>
           }
@@ -74,7 +78,7 @@ function App() {
           element={
             <AdminRoute>
               <MainLayout>
-                <DummyPage title="Inventaris & Bahan Baku" />
+                <InventarisPage />
               </MainLayout>
             </AdminRoute>
           }
@@ -86,7 +90,7 @@ function App() {
           element={
             <AdminRoute>
               <MainLayout>
-                <DummyPage title="Manajemen Promo" />
+                <PromoPage />
               </MainLayout>
             </AdminRoute>
           }
@@ -122,7 +126,7 @@ function App() {
           element={
             <AdminRoute>
               <MainLayout>
-                <DummyPage title="Pengaturan Toko" />
+                <PengaturanPage />
               </MainLayout>
             </AdminRoute>
           }
