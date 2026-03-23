@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\StockLog;
 
+
 class ProductController extends Controller
 {
     public function index()
@@ -84,18 +85,17 @@ class ProductController extends Controller
 
     // FITUR BARU: HAPUS MENU
     public function destroy($id)
-    {
-        $product = Product::findOrFail($id);
+{
+    $product = Product::findOrFail($id);
 
-        // Hapus file gambarnya juga dari folder storage
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
-        }
+    // Ini sekarang tidak menghapus data dari database,
+    // melainkan hanya mengisi tanggal di kolom deleted_at
+    $product->delete();
 
-        $product->delete();
-
-        return response()->json(['message' => 'Menu berhasil dihapus permanen!'], 200);
-    }
+    return response()->json([
+        'message' => 'Menu berhasil dihapus.'
+    ], 200);
+}
 
     // FITUR BARU: TOGGLE STATUS (Aktif / Non-Aktif)
     public function toggleStatus($id)

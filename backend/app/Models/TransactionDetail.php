@@ -13,6 +13,8 @@ class TransactionDetail extends Model
     // Detail ini milik satu produk tertentu
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id')->withTrashed();
     }
+
+
 }
