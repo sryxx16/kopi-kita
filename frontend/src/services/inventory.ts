@@ -37,3 +37,11 @@ export const deleteInventory = async (id: number) => {
   );
   return response.data;
 };
+export const restockInventory = async (id: number, data: any) => {
+  const response = await axios.post(
+    `${API_URL}/inventory/${id}/restock`,
+    data,
+    getAuthHeaders(),
+  );
+  return response.data;
+};

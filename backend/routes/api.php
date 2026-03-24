@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     //api inventaris
     Route::apiResource('inventory', RawMaterialController::class);
+    Route::post('inventory/{id}/restock', [RawMaterialController::class, 'restock']);
 
     //api promo
     Route::apiResource('promos', PromoController::class);
@@ -75,6 +76,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/settings', [SettingController::class, 'update']);
 
     Route::apiResource('expenses', ExpenseController::class)->only(['index', 'store', 'destroy']);
-
     Route::apiResource('expenses', \App\Http\Controllers\ExpenseController::class);
 });

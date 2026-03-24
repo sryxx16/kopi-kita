@@ -9,18 +9,16 @@ import {
   Package,
   Ticket,
   Gear,
-  ShoppingCart, // <-- Icon baru untuk halaman Kasir
+  ShoppingCart,
 } from "phosphor-react";
 
 export default function Sidebar() {
   const location = useLocation();
 
-  // 1. Ambil data user dari sesi login saat ini
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
-  const userRole = user?.role || "kasir"; // Default anggap saja kasir kalau error
+  const userRole = user?.role || "kasir";
 
-  // 2. Daftar semua menu beserta hak aksesnya (roles)
   const allMenus = [
     {
       path: "/kasir",
@@ -72,7 +70,6 @@ export default function Sidebar() {
     },
   ];
 
-  // 3. Saring menu berdasarkan role user yang login
   const allowedMenus = allMenus.filter((menu) => menu.roles.includes(userRole));
 
   const handleLogout = () => {
@@ -82,7 +79,8 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-zinc-900 h-screen fixed top-0 left-0 flex flex-col text-zinc-400 z-50 shadow-2xl">
+    // Tambahan print:hidden ada di class <aside> ini biar hilang pas nge-print
+    <aside className="w-64 bg-zinc-900 h-screen fixed top-0 left-0 flex flex-col text-zinc-400 z-50 shadow-2xl print:hidden">
       <div className="p-6 flex items-center gap-3 text-white border-b border-zinc-800">
         <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
           <Storefront size={20} weight="bold" />
@@ -91,7 +89,6 @@ export default function Sidebar() {
           <h2 className="font-black text-xl tracking-tighter uppercase leading-none">
             Kopi Kita
           </h2>
-          {/* Tampilkan badge role biar makin keren */}
           <span
             className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest mt-1 inline-block ${userRole === "admin" ? "bg-blue-500/20 text-blue-400" : "bg-green-500/20 text-green-400"}`}
           >
@@ -101,7 +98,6 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {/* 4. Render menu yang sudah disaring */}
         {allowedMenus.map((item) => (
           <Link
             key={item.path}
@@ -119,7 +115,6 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-zinc-800">
-        {/* Info user yg lagi login */}
         <div className="mb-4 px-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center font-bold text-white text-xs">
             {user?.name?.charAt(0).toUpperCase() || "U"}

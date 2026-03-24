@@ -75,3 +75,33 @@ h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
 }
+
+@media print {
+  /* Hilangkan semua warna background & shadow layar */
+  body,
+  html,
+  #root {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Hilangkan Sidebar secara paksa saat ngeprint */
+  aside,
+  .print-hidden-sidebar {
+    display: none !important;
+  }
+
+  /* Hilangkan margin kiri Layout (karena sidebarnya hilang) */
+  .print-reset-margin {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Paksa ukuran kertas printer kasir (58mm atau 80mm) */
+  @page {
+    margin: 0;
+    size: auto;
+  }
+}

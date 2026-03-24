@@ -6,12 +6,13 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-zinc-50">
+    // Tambahan print:bg-white biar kertasnya bersih
+    <div className="flex min-h-screen bg-zinc-50 print:bg-white">
       {/* Panggil Sidebar */}
       <Sidebar />
 
-      {/* Konten Utama (Bergeser ke kanan sebesar lebar sidebar yaitu 64 / 256px) */}
-      <div className="flex-1 ml-64 p-8">{children}</div>
+      {/* Konten Utama (Margin dan padding direset pas nge-print) */}
+      <div className="flex-1 ml-64 p-8 print:ml-0 print:p-0">{children}</div>
     </div>
   );
 }

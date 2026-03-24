@@ -8,6 +8,7 @@ export const checkout = async (
   totalPrice: number,
   paymentMethod: string,
   discountAmount: number = 0,
+  customerName: string = "",
 ) => {
   const token = localStorage.getItem("token");
 
@@ -23,7 +24,8 @@ export const checkout = async (
         amount_paid: amountPaid,
         total_price: totalPrice,
         payment_method: paymentMethod,
-        discount_amount: discountAmount, // 👇 KIRIM KE BACKEND
+        discount_amount: discountAmount,
+        customer_name: customerName, // 👇 KIRIM KE BACKEND
       },
       { headers: { Authorization: `Bearer ${token}` } },
     );
@@ -53,6 +55,15 @@ export const voidTransaction = async (id: number) => {
     {
       headers: { Authorization: `Bearer ${token}` },
     },
+  );
+  return response.data;
+};
+
+export const restockInventory = async (id: number, data: any) => {
+  const response = await axios.post(
+    `${API_URL}/inventory/${id}/restock`,
+    data,
+    getAuthHeaders(),
   );
   return response.data;
 };

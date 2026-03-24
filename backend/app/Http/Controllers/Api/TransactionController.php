@@ -23,6 +23,7 @@ class TransactionController extends Controller
             'total_price' => 'required|numeric|min:0',
             'payment_method' => 'required|string',
             'discount_amount' => 'nullable|numeric|min:0',
+            'customer_name' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -60,7 +61,8 @@ class TransactionController extends Controller
             // PASTIKAN NAMA KOLOM SAMA PERSIS DENGAN DATABASE
             $transaction = Transaction::create([
                 'user_id' => auth()->id() ?? 1,
-                'invoice_number' => 'INV-' . strtoupper(uniqid()), // Sesuai migration
+                'invoice_number' => 'INV-' . strtoupper(uniqid()),
+                'customer_name' => $request->customer_name, // Sesuai migration
                 'total_price' => $totalPrice,
                 'amount_paid' => $request->amount_paid,
                 'change' => $change, // Sesuai migration
