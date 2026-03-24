@@ -10,7 +10,6 @@ class Transaction extends Model
     use HasFactory;
     protected $guarded = [];
 
-    // Satu transaksi punya banyak detail barang
     public function details()
     {
         return $this->hasMany(TransactionDetail::class);

@@ -10,10 +10,9 @@ class TransactionDetail extends Model
     use HasFactory;
     protected $guarded = [];
 
-    // Detail ini milik satu produk tertentu
     public function product()
     {
-        return $this->belongsTo(Product::class, 'product_id')->withTrashed();
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 
 
