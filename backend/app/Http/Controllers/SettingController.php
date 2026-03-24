@@ -7,17 +7,20 @@ use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
-    // Ambil data pengaturan (selalu ambil baris pertama/ID 1)
+    // Ambil data pengaturan (selalu ambil baris paling atas tanpa peduli ID-nya)
     public function index() {
-        $setting = Setting::firstOrCreate(
-            ['id' => 1],
-            [
-                'store_name' => 'Kopi Kita',
+        $setting = Setting::first();
+
+        // Kalau belum ada data sama sekali, bikin baru
+        if (!$setting) {
+            $setting = Setting::create([
+                'store_name' => 'KOPI KITA',
                 'store_address' => 'Jl. Ngoding Bersama No. 99, Jakarta',
                 'store_phone' => '081234567890',
                 'tax_percentage' => 0
-            ]
-        );
+            ]);
+        }
+
         return response()->json($setting, 200);
     }
 
@@ -27,11 +30,18 @@ class SettingController extends Controller
             'store_name' => 'required|string',
             'store_address' => 'nullable|string',
             'store_phone' => 'nullable|string',
-            'tax_percentage' => 'required|integer|min:0|max:100',
+            'tax_percentage' => 'required|numeric|min:0|max:100',
         ]);
 
-        $setting = Setting::find(1);
-        $setting->update($request->all());
+        $setting = Setting::first();
+
+        if (!$setting) {
+            // Jaga-jaga kalau kosong banget
+            Setting::create($request->all());
+        } else {
+            // Update baris pertama yang ketemu
+            $setting->update($request->all());
+        }
 
         return response()->json(['message' => 'Pengaturan Toko berhasil diperbarui!'], 200);
     }

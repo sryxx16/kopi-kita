@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { getSettings } from "../services/setting"; // Panggil service pengaturan
 import {
   Layout,
   Coffee,
@@ -18,6 +20,24 @@ export default function Sidebar() {
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const userRole = user?.role || "kasir";
+
+  // STATE UNTUK NAMA TOKO
+  const [storeName, setStoreName] = useState("Kopi Kita");
+
+  // AMBIL NAMA TOKO DARI DATABASE
+  useEffect(() => {
+    const fetchStoreName = async () => {
+      try {
+        const data = await getSettings();
+        if (data && data.store_name) {
+          setStoreName(data.store_name);
+        }
+      } catch (error) {
+        console.error("Gagal memuat nama toko", error);
+      }
+    };
+    fetchStoreName();
+  }, []);
 
   const allMenus = [
     {
@@ -79,15 +99,18 @@ export default function Sidebar() {
   };
 
   return (
-    // Tambahan print:hidden ada di class <aside> ini biar hilang pas nge-print
     <aside className="w-64 bg-zinc-900 h-screen fixed top-0 left-0 flex flex-col text-zinc-400 z-50 shadow-2xl print:hidden">
       <div className="p-6 flex items-center gap-3 text-white border-b border-zinc-800">
-        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
           <Storefront size={20} weight="bold" />
         </div>
-        <div>
-          <h2 className="font-black text-xl tracking-tighter uppercase leading-none">
-            Kopi Kita
+        <div className="overflow-hidden">
+          {/* NAMA TOKO DINAMIS */}
+          <h2
+            className="font-black text-xl tracking-tighter uppercase leading-none truncate"
+            title={storeName}
+          >
+            {storeName}
           </h2>
           <span
             className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest mt-1 inline-block ${userRole === "admin" ? "bg-blue-500/20 text-blue-400" : "bg-green-500/20 text-green-400"}`}
@@ -102,11 +125,7 @@ export default function Sidebar() {
           <Link
             key={item.path}
             to={item.path}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
-              location.pathname === item.path
-                ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20"
-                : "hover:bg-zinc-800 hover:text-zinc-100"
-            }`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === item.path ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20" : "hover:bg-zinc-800 hover:text-zinc-100"}`}
           >
             {item.icon}
             <span className="text-sm">{item.name}</span>
@@ -128,13 +147,11 @@ export default function Sidebar() {
             </p>
           </div>
         </div>
-
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 transition-all text-sm"
         >
-          <SignOut size={20} weight="bold" />
-          Keluar Sesi
+          <SignOut size={20} weight="bold" /> Keluar Sesi
         </button>
       </div>
     </aside>

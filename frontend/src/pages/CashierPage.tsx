@@ -586,8 +586,11 @@ export default function CashierPage() {
       {checkoutSuccess && (
         <div className="hidden print:block font-mono text-black bg-white w-full max-w-[80mm] mx-auto text-xs p-2">
           <div className="text-center mb-4">
-            <h2 className="text-xl font-black mb-1">KOPI KITA</h2>
-            <p>Jl. Ngoding Bersama No.99</p>
+            <h2 className="text-xl font-black mb-1 uppercase">
+              {settings.store_name || "KOPI KITA"}
+            </h2>
+            <p>{settings.store_address || "Alamat Toko Belum Diatur"}</p>
+            {settings.store_phone && <p>Telp: {settings.store_phone}</p>}
           </div>
 
           <div className="border-b border-dashed border-black pb-2 mb-2">

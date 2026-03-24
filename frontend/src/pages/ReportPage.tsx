@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getDashboardStats, exportDashboardExcel } from "../services/report";
 import { voidTransaction } from "../services/transaction";
+import { getSettings } from "../services/setting";
 import { getExpenses, createExpense, deleteExpense } from "../services/expense";
 import {
   ChartLineUp,
@@ -44,6 +45,7 @@ export default function ReportPage() {
   const [customDate, setCustomDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"income" | "expense">("income");
+  const [settings, setSettings] = useState<any>({});
 
   const [summary, setSummary] = useState<any>({
     revenue: 0,
@@ -101,6 +103,9 @@ export default function ReportPage() {
       } else {
         setExpensesList([]);
       }
+
+      const settingsData = await getSettings();
+      setSettings(settingsData);
     } catch (error) {
       console.error("Gagal mengambil laporan:", error);
     } finally {
@@ -930,9 +935,15 @@ export default function ReportPage() {
                 </button>
                 <div className="p-8 pb-4">
                   <div className="text-center mb-6">
-                    <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">
-                      KOPI KITA
+                    <h2 className="text-xl font-black mb-1 uppercase">
+                      {settings.store_name || "KOPI KITA"}
                     </h2>
+                    <p>
+                      {settings.store_address || "Alamat Toko Belum Diatur"}
+                    </p>
+                    {settings.store_phone && (
+                      <p>Telp: {settings.store_phone}</p>
+                    )}
                     <p className="text-zinc-500 text-xs mt-1">
                       Salinan Struk Digital
                     </p>
