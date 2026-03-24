@@ -43,6 +43,9 @@ export default function CashierPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState<any | null>(null);
+  const baseURL =
+    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    "http://localhost:8000";
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -480,6 +483,50 @@ export default function CashierPage() {
                   Transfer
                 </button>
               </div>
+            </div>
+
+            {/* INFO PEMBAYARAN OTOMATIS */}
+            <div className="mt-4 animate-fade-in">
+              {paymentMethod === "qris" && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-col items-center">
+                  <p className="text-xs font-bold text-blue-600 mb-2 uppercase">
+                    Scan QRIS di Bawah Ini
+                  </p>
+                  {/* Jika ada gambar di settings, tampilkan. Jika tidak, pakai placeholder */}
+                  <img
+                    src={
+                      settings.qris_image ||
+                      "https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg"
+                    }
+                    alt="QRIS"
+                    className="w-32 h-32 rounded-lg border-2 border-white shadow-sm"
+                  />
+                  <p className="text-[10px] text-blue-400 mt-2 text-center">
+                    Pastikan status pembayaran BERHASIL di HP pelanggan
+                  </p>
+                </div>
+              )}
+
+              {paymentMethod === "transfer" && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl">
+                  <p className="text-xs font-bold text-purple-600 mb-2 uppercase">
+                    Rekening Tujuan
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-500 rounded-lg text-white flex items-center justify-center font-black">
+                      {settings.bank_name?.substring(0, 3) || "BANK"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-purple-900">
+                        {settings.bank_account_number || "Belum Atur Rekening"}
+                      </p>
+                      <p className="text-xs font-bold text-purple-500">
+                        a.n {settings.bank_account_name || "Pemilik Kedai"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mb-4">
