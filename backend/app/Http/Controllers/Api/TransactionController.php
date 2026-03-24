@@ -21,7 +21,10 @@ class TransactionController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'amount_paid' => 'required|numeric|min:0',
-            'total_price' => 'required|numeric|min:0', // Total setelah diskon + tax dari frontend
+            'total_price' => 'required|numeric|min:0',
+            // 👇 TAMBAHIN INI
+            'payment_method' => 'required|string',
+            'discount_amount' => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -42,6 +45,8 @@ class TransactionController extends Controller
                     'product_id' => $product->id,
                     'quantity' => $item['quantity'],
                     'subtotal' => $subtotal,
+                    // 👇 TAMBAHKAN INI: Tarik harga modal dari database master produk
+                    'cost_price' => $product->cost_price ?? 0,
                 ];
             }
 
@@ -54,12 +59,14 @@ class TransactionController extends Controller
 
             // 5. Simpan ke tabel Induk (transactions)
             $transaction = Transaction::create([
-                // Kita hardcode user_id 1 dulu untuk testing awal, nanti bisa pakai Auth::id()
                 'user_id' => 1,
                 'invoice_number' => 'INV-' . strtoupper(uniqid()),
                 'total_price' => $totalPrice,
                 'amount_paid' => $request->amount_paid,
                 'change' => $change,
+                // 👇 TAMBAHIN INI: Simpan metode bayarnya
+                'payment_method' => $request->payment_method,
+                'discount_amount' => $request->discount_amount ?? 0,
             ]);
 
             // 6. Simpan ke tabel Detail (transaction_details)
@@ -69,6 +76,8 @@ class TransactionController extends Controller
                     'product_id' => $detail['product_id'],
                     'quantity' => $detail['quantity'],
                     'subtotal' => $detail['subtotal'],
+                    // 👇 TAMBAHKAN INI: Rekam harga modal ke riwayat transaksi
+                    'cost_price' => $detail['cost_price'],
                 ]);
             }
 

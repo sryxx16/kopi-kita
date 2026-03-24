@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\RawMaterialController;
 use App\Http\Controllers\PromoController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\ExpenseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -72,4 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Rute Pengaturan
     Route::get('/settings', [SettingController::class, 'index']);
     Route::put('/settings', [SettingController::class, 'update']);
+
+    Route::apiResource('expenses', ExpenseController::class)->only(['index', 'store', 'destroy']);
+
+    Route::apiResource('expenses', \App\Http\Controllers\ExpenseController::class);
 });

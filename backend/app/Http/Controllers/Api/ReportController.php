@@ -7,8 +7,8 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use App\Exports\TransactionsExport; // Tambah di atas
-use Maatwebsite\Excel\Facades\Excel; // Tambah di atas
+use App\Exports\TransactionsExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
@@ -45,6 +45,31 @@ class ReportController extends Controller
         $totalRevenue = $transactions->sum('total_price');
         $totalTransactions = $transactions->count();
 
+        // 🔥 PERBAIKAN: Hitung Total Modal (Super Aman dari data lama / null)
+        $totalCost = 0;
+        foreach ($transactions as $tx) {
+            if ($tx->details) {
+                foreach ($tx->details as $detail) {
+                    // Pakai (float) dan ?? 0 biar kalau data lama kosong, gak bikin server crash
+                    $hargaModal = (float) ($detail->cost_price ?? 0);
+                    $qty = (int) ($detail->quantity ?? 0);
+                    $totalCost += ($hargaModal * $qty);
+                }
+            }
+        }
+        $grossProfit = $totalRevenue - $totalCost; // Omzet - Modal = Cuan!
+
+        // 👇 TAMBAHKAN KODE INI: Hitung Pengeluaran Operasional (Expenses)
+        $expenses = \App\Models\Expense::whereBetween('expense_date', [
+            $startDate->toDateString(),
+            $endDate->toDateString()
+        ])->get();
+
+        $totalExpense = $expenses->sum('amount'); // Total Kas Keluar
+
+        // LABA BERSIH SEJATI! (Laba Kotor dikurangi Kas Keluar)
+        $netProfit = $grossProfit - $totalExpense;
+
         // Ambil Data Periode Sebelumnya
         $prevTransactions = Transaction::whereBetween('created_at', [$prevStartDate, $prevEndDate])->get();
         $prevRevenue = $prevTransactions->sum('total_price');
@@ -54,39 +79,66 @@ class ReportController extends Controller
         $revenueChange = $prevRevenue > 0 ? (($totalRevenue - $prevRevenue) / $prevRevenue) * 100 : ($totalRevenue > 0 ? 100 : 0);
         $countChange = $prevTransactionsCount > 0 ? (($totalTransactions - $prevTransactionsCount) / $prevTransactionsCount) * 100 : ($totalTransactions > 0 ? 100 : 0);
 
+
+        $cashRevenue = $transactions->where('payment_method', 'cash')->sum('total_price');
+        $qrisRevenue = $transactions->where('payment_method', 'qris')->sum('total_price');
+        $transferRevenue = $transactions->where('payment_method', 'transfer')->sum('total_price');
         // Analisis Jam
         $hourlyAnalysis = Transaction::select(DB::raw('HOUR(CONVERT_TZ(created_at, "+00:00", "+07:00")) as hour'), DB::raw('count(*) as count'))
             ->whereBetween('created_at', [$startDate, $endDate])->groupBy('hour')->orderBy('hour')->get();
-
+        $totalDiscount = $transactions->sum('discount_amount');
         return response()->json([
             'summary' => [
                 'revenue' => $totalRevenue,
-                'revenue_change' => round($revenueChange, 1), // Persentase Omzet
+                // ...
+                'total_discount' => $totalDiscount, // 👇 KIRIM KE REACT
+                'payment_breakdown' => [
+                   // ...
+                ]
+            ],]);
+        return response()->json([
+            'summary' => [
+                'revenue' => $totalRevenue,
+                'revenue_change' => round($revenueChange, 1),
+                'gross_profit' => $grossProfit,
+                'total_expense' => $totalExpense ?? 0,
+                'net_profit' => $netProfit ?? 0,
                 'transactions_count' => $totalTransactions,
-                'transactions_count_change' => round($countChange, 1), // Persentase Jumlah Transaksi
+                'transactions_count_change' => round($countChange, 1),
+
+                // 👇 TAMBAHIN DATA INI DI DALAM SUMMARY BIAR DIKIRIM KE REACT
+                'payment_breakdown' => [
+                    'cash' => $cashRevenue,
+                    'qris' => $qrisRevenue,
+                    'transfer' => $transferRevenue
+                ]
             ],
             'transactions' => $transactions,
             'hourly_analysis' => $hourlyAnalysis
         ], 200);
+
+
     }
+
+
 
     public function exportExcel(Request $request)
-{
-    $filter = $request->query('filter', 'today');
-    $customDate = $request->query('date');
+    {
+        $filter = $request->query('filter', 'today');
+        $customDate = $request->query('date');
 
-    $startDate = Carbon::today();
-    $endDate = Carbon::now();
+        $startDate = Carbon::today();
+        $endDate = Carbon::now();
 
-    if ($filter === 'custom' && $customDate) {
-        $startDate = Carbon::parse($customDate)->startOfDay();
-        $endDate = Carbon::parse($customDate)->endOfDay();
-    } else if ($filter === '7days') {
-        $startDate = Carbon::today()->subDays(6)->startOfDay();
-    } else if ($filter === 'month') {
-        $startDate = Carbon::today()->startOfMonth()->startOfDay();
+        if ($filter === 'custom' && $customDate) {
+            $startDate = Carbon::parse($customDate)->startOfDay();
+            $endDate = Carbon::parse($customDate)->endOfDay();
+        } else if ($filter === '7days') {
+            $startDate = Carbon::today()->subDays(6)->startOfDay();
+        } else if ($filter === 'month') {
+            $startDate = Carbon::today()->startOfMonth()->startOfDay();
+        }
+
+        return Excel::download(new TransactionsExport($startDate, $endDate), 'laporan-kopi-kita.xlsx');
     }
-
-    return Excel::download(new TransactionsExport($startDate, $endDate), 'laporan-kopi-kita.xlsx');
-}
 }

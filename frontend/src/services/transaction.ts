@@ -6,8 +6,9 @@ export const checkout = async (
   items: any[],
   amountPaid: number,
   totalPrice: number,
+  paymentMethod: string,
+  discountAmount: number = 0,
 ) => {
-  // Kita ambil token dari localStorage biar API tau siapa kasir yang lagi jaga
   const token = localStorage.getItem("token");
 
   if (!token) {
@@ -17,13 +18,18 @@ export const checkout = async (
   try {
     const response = await axios.post(
       `${API_URL}/transactions`,
-      { items, amount_paid: amountPaid, total_price: totalPrice },
+      {
+        items,
+        amount_paid: amountPaid,
+        total_price: totalPrice,
+        payment_method: paymentMethod,
+        discount_amount: discountAmount, // 👇 KIRIM KE BACKEND
+      },
       { headers: { Authorization: `Bearer ${token}` } },
     );
 
     return response.data;
   } catch (error: any) {
-    // Tampilkan error detail dari backend
     const errorMessage =
       error.response?.data?.message ||
       error.response?.data?.errors ||

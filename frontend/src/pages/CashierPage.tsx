@@ -14,6 +14,9 @@ import {
   Coffee,
   WarningCircle,
   CheckCircle,
+  Money,
+  QrCode,
+  Bank,
 } from "phosphor-react";
 
 export default function CashierPage() {
@@ -33,11 +36,15 @@ export default function CashierPage() {
   const [appliedPromo, setAppliedPromo] = useState<any | null>(null);
   const [payAmount, setPayAmount] = useState("");
 
+  // 👇 STATE BARU: Metode Pembayaran
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "qris" | "transfer"
+  >("cash");
+
   // State Modal Sukses
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState<any | null>(null);
 
-  // 1. SEDOT SEMUA DATA DARI BACKEND SAAT HALAMAN DIBUKA
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
@@ -49,14 +56,11 @@ export default function CashierPage() {
             getSettings(),
             getPromos(),
           ]);
-
-        // Hanya tampilkan produk yang statusnya 'tersedia' dan stok > 0
         setProducts(
           prodData.filter((p: any) => p.status === "tersedia" && p.stock > 0),
         );
         setCategories(catData);
         setSettings(setSettingsData);
-        // Hanya ambil promo yang aktif dan belum expired
         setPromos(
           promoData.filter(
             (p: any) => p.is_active === 1 || p.is_active === true,
@@ -71,7 +75,6 @@ export default function CashierPage() {
     fetchAllData();
   }, []);
 
-  // 2. LOGIKA KERANJANG (CART)
   const addToCart = (product: any) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
@@ -116,22 +119,15 @@ export default function CashierPage() {
     setPromoCode("");
     setAppliedPromo(null);
     setPayAmount("");
+    setPaymentMethod("cash"); // Reset ke Cash
   };
 
-  // 3. LOGIKA VOUCHER DISKON
   const handleApplyPromo = () => {
     if (!promoCode) return setAppliedPromo(null);
-
     const foundPromo = promos.find((p) => p.code === promoCode.toUpperCase());
-
     if (!foundPromo) return alert("Kode Voucher tidak valid atau tidak aktif!");
-
-    if (
-      foundPromo.valid_until &&
-      new Date(foundPromo.valid_until) < new Date()
-    ) {
+    if (foundPromo.valid_until && new Date(foundPromo.valid_until) < new Date())
       return alert("Yahh, Voucher ini sudah Kadaluarsa!");
-    }
 
     setAppliedPromo(foundPromo);
     alert(`Voucher ${foundPromo.name} berhasil digunakan! 🎉`);
@@ -145,13 +141,11 @@ export default function CashierPage() {
 
   let discountAmount = 0;
   if (appliedPromo) {
-    if (appliedPromo.discount_type === "percentage") {
-      discountAmount = (subtotal * appliedPromo.discount_value) / 100;
-    } else {
-      discountAmount = Number(appliedPromo.discount_value);
-    }
+    discountAmount =
+      appliedPromo.discount_type === "percentage"
+        ? (subtotal * appliedPromo.discount_value) / 100
+        : Number(appliedPromo.discount_value);
   }
-  // Cegah diskon lebih besar dari subtotal
   if (discountAmount > subtotal) discountAmount = subtotal;
 
   const totalAfterDiscount = subtotal - discountAmount;
@@ -159,29 +153,38 @@ export default function CashierPage() {
   const grandTotal = totalAfterDiscount + taxAmount;
   const kembali = Number(payAmount) - grandTotal;
 
-  // 5. PROSES CHECKOUT KE BACKEND
+  // 👇 EFEK BARU: Auto-fill uang jika bukan Cash
+  useEffect(() => {
+    if (paymentMethod !== "cash" && grandTotal > 0) {
+      setPayAmount(grandTotal.toString());
+    } else if (
+      paymentMethod === "cash" &&
+      payAmount === grandTotal.toString()
+    ) {
+      setPayAmount(""); // Kosongkan lagi kalau balik ke cash biar kasir input manual
+    }
+  }, [paymentMethod, grandTotal]);
+
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Keranjang masih kosong, Bos!");
     if (Number(payAmount) < grandTotal)
-      return alert("Uang tunai kurang! Pembeli harus bayar pas atau lebih.");
+      return alert("Uang kurang! Pembeli harus bayar pas atau lebih.");
 
     setIsSubmitting(true);
     try {
-      // Siapkan items untuk checkout
       const checkoutItems = cart.map((item) => ({
-        product_id: Number(item.id), // Pastikan integer
-        quantity: Math.floor(Number(item.quantity)), // Pastikan integer
+        product_id: Number(item.id),
+        quantity: Math.floor(Number(item.quantity)),
       }));
 
-      console.log("DEBUG: Sending checkout payload:", {
-        items: checkoutItems,
-        amount_paid: Number(payAmount),
-      });
+      // 👇 Panggil API Checkout dengan param paymentMethod
+      const res = await checkout(
+        checkoutItems,
+        Number(payAmount),
+        grandTotal,
+        paymentMethod,
+      );
 
-      // Hit API Transaksi
-      const res = await checkout(checkoutItems, Number(payAmount), grandTotal);
-
-      // Tampilkan Modal Sukses (Struk)
       setCheckoutSuccess({
         invoice: res.invoice,
         subtotal,
@@ -190,10 +193,10 @@ export default function CashierPage() {
         grandTotal,
         payAmount: Number(payAmount),
         kembali: res.kembalian,
+        paymentMethod: paymentMethod, // Simpan metode bayar di struk
         items: cart,
       });
 
-      // Kurangi stok di tampilan (biar gak perlu refresh page)
       setProducts(
         products
           .map((p) => {
@@ -201,20 +204,16 @@ export default function CashierPage() {
             return inCart ? { ...p, stock: p.stock - inCart.quantity } : p;
           })
           .filter((p) => p.stock > 0),
-      ); // Buang yg stoknya jadi 0
+      );
 
-      clearCart(); // Bersihkan keranjang
+      clearCart();
     } catch (error: any) {
-      const errorMsg =
-        error.message || "Gagal melakukan transaksi. Silakan coba lagi.";
-      alert(errorMsg);
-      console.error("Checkout Error:", error);
+      alert(error.message || "Gagal melakukan transaksi. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter Produk untuk ditampilkan
   const filteredProducts = products.filter((p) => {
     const matchCat =
       selectedCategory === "all" ||
@@ -227,7 +226,7 @@ export default function CashierPage() {
 
   return (
     <div className="font-sans h-[calc(100vh-80px)] flex flex-col xl:flex-row gap-6 animate-fade-in pb-8">
-      {/* BAGIAN KIRI: DAFTAR MENU (70% Lebar Layar) */}
+      {/* BAGIAN KIRI: DAFTAR MENU */}
       <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-sm border border-zinc-200 overflow-hidden h-full">
         {/* Header & Filter */}
         <div className="p-6 border-b border-zinc-100 bg-white z-10 shadow-sm">
@@ -323,8 +322,8 @@ export default function CashierPage() {
         </div>
       </div>
 
-      {/* BAGIAN KANAN: KERANJANG BELANJA (30% Lebar Layar) */}
-      <div className="w-full xl:w-[400px] flex flex-col bg-white rounded-3xl shadow-sm border border-zinc-200 h-full overflow-hidden flex-shrink-0">
+      {/* BAGIAN KANAN: KERANJANG BELANJA */}
+      <div className="w-full xl:w-[420px] flex flex-col bg-white rounded-3xl shadow-sm border border-zinc-200 h-full overflow-hidden flex-shrink-0">
         <div className="p-5 border-b border-zinc-100 bg-zinc-900 text-white flex justify-between items-center">
           <h2 className="text-lg font-black flex items-center gap-2">
             <ShoppingCart size={24} className="text-orange-500" /> Pesanan
@@ -335,7 +334,6 @@ export default function CashierPage() {
           </span>
         </div>
 
-        {/* Daftar Keranjang */}
         <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-zinc-400 opacity-50">
@@ -392,7 +390,6 @@ export default function CashierPage() {
 
         {/* Area Kalkulasi & Bayar */}
         <div className="bg-white p-5 border-t border-zinc-200 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
-          {/* Input Promo */}
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
               <Ticket
@@ -415,27 +412,23 @@ export default function CashierPage() {
             </button>
           </div>
 
-          {/* Rincian Biaya */}
           <div className="space-y-2 mb-4 text-sm">
             <div className="flex justify-between text-zinc-500 font-bold">
               <p>Subtotal</p>
               <p>Rp {subtotal.toLocaleString("id-ID")}</p>
             </div>
-
             {appliedPromo && (
               <div className="flex justify-between text-green-600 font-bold">
                 <p>Diskon ({appliedPromo.code})</p>
                 <p>- Rp {discountAmount.toLocaleString("id-ID")}</p>
               </div>
             )}
-
             {settings.tax_percentage > 0 && (
               <div className="flex justify-between text-zinc-500 font-bold">
                 <p>Pajak PPN ({settings.tax_percentage}%)</p>
                 <p>Rp {taxAmount.toLocaleString("id-ID")}</p>
               </div>
             )}
-
             <div className="flex justify-between items-end mt-2 pt-2 border-t border-dashed border-zinc-300">
               <p className="font-bold text-zinc-500">TOTAL BAYAR</p>
               <p className="text-2xl font-black text-orange-600 leading-none">
@@ -444,10 +437,51 @@ export default function CashierPage() {
             </div>
           </div>
 
-          {/* Input Uang Tunai */}
+          {/* 🔥 NEW: METODE PEMBAYARAN 🔥 */}
+          <div className="mb-4">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+              Metode Pembayaran
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setPaymentMethod("cash")}
+                className={`py-2 px-3 flex flex-col items-center justify-center gap-1 rounded-xl font-bold text-xs border-2 transition-all ${paymentMethod === "cash" ? "border-green-500 bg-green-50 text-green-700" : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"}`}
+              >
+                <Money
+                  size={20}
+                  weight={paymentMethod === "cash" ? "fill" : "regular"}
+                />{" "}
+                Tunai
+              </button>
+              <button
+                onClick={() => setPaymentMethod("qris")}
+                className={`py-2 px-3 flex flex-col items-center justify-center gap-1 rounded-xl font-bold text-xs border-2 transition-all ${paymentMethod === "qris" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"}`}
+              >
+                <QrCode
+                  size={20}
+                  weight={paymentMethod === "qris" ? "fill" : "regular"}
+                />{" "}
+                QRIS
+              </button>
+              <button
+                onClick={() => setPaymentMethod("transfer")}
+                className={`py-2 px-3 flex flex-col items-center justify-center gap-1 rounded-xl font-bold text-xs border-2 transition-all ${paymentMethod === "transfer" ? "border-purple-500 bg-purple-50 text-purple-700" : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"}`}
+              >
+                <Bank
+                  size={20}
+                  weight={paymentMethod === "transfer" ? "fill" : "regular"}
+                />{" "}
+                Transfer
+              </button>
+            </div>
+          </div>
+
+          {/* Input Uang */}
           <div className="mb-4">
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
-              Uang Tunai Pelanggan
+              {paymentMethod === "cash"
+                ? "Uang Tunai Pelanggan"
+                : "Nominal Pembayaran"}
             </label>
             <div className="relative">
               <span className="absolute left-4 top-3.5 font-black text-zinc-400">
@@ -457,8 +491,9 @@ export default function CashierPage() {
                 type="number"
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
+                disabled={paymentMethod !== "cash"}
                 placeholder="0"
-                className="w-full pl-12 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-black text-blue-800 text-lg"
+                className={`w-full pl-12 pr-4 py-3 border rounded-xl outline-none font-black text-lg ${paymentMethod === "cash" ? "bg-blue-50 border-blue-200 focus:ring-2 focus:ring-blue-500 text-blue-800" : "bg-zinc-100 border-zinc-200 text-zinc-500 cursor-not-allowed"}`}
               />
             </div>
           </div>
@@ -489,9 +524,7 @@ export default function CashierPage() {
         </div>
       </div>
 
-      {/* =========================================
-          🔥 MODAL: STRUK KEMBALIAN (SUKSES)
-      ============================================= */}
+      {/* MODAL: STRUK KEMBALIAN */}
       {checkoutSuccess && (
         <div className="fixed inset-0 bg-zinc-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col text-center">
@@ -507,9 +540,12 @@ export default function CashierPage() {
               </p>
             </div>
 
-            <div className="p-8">
+            <div className="p-8 pb-4">
               <p className="text-zinc-500 font-bold uppercase tracking-wider text-xs mb-1">
-                Uang Kembalian
+                {checkoutSuccess.paymentMethod === "cash"
+                  ? "Uang Kembalian"
+                  : "Pembayaran via " +
+                    checkoutSuccess.paymentMethod.toUpperCase()}
               </p>
               <h1
                 className={`text-5xl font-black tracking-tighter mb-8 ${checkoutSuccess.kembali > 0 ? "text-blue-600" : "text-zinc-800"}`}
