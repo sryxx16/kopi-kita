@@ -183,6 +183,7 @@ export default function CashierPage() {
         Number(payAmount),
         grandTotal,
         paymentMethod,
+        discountAmount,
       );
 
       setCheckoutSuccess({

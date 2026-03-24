@@ -45,7 +45,7 @@ export default function ReportPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"income" | "expense">("income");
 
-  // State Data (Ditambah payment_breakdown)
+  // State Data (Ditambah payment_breakdown & total_discount)
   const [summary, setSummary] = useState<any>({
     revenue: 0,
     gross_profit: 0,
@@ -54,6 +54,7 @@ export default function ReportPage() {
     transactions_count: 0,
     revenue_change: 0,
     transactions_count_change: 0,
+    total_discount: 0, // Tambahan untuk rekap diskon
     payment_breakdown: { cash: 0, qris: 0, transfer: 0 },
   });
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -77,11 +78,34 @@ export default function ReportPage() {
         filter,
         filter === "custom" ? customDate : undefined,
       );
-      setSummary(data.summary);
-      setTransactions(data.transactions);
+
+      // Amankan pembacaan data summary
+      if (data && data.summary) {
+        setSummary(data.summary);
+      }
+
+      // Amankan pembacaan array transactions
+      if (data && Array.isArray(data.transactions)) {
+        setTransactions(data.transactions);
+      } else if (
+        data &&
+        data.transactions &&
+        Array.isArray(data.transactions.data)
+      ) {
+        setTransactions(data.transactions.data); // Jaga-jaga kalau dipaginasi
+      } else {
+        setTransactions([]);
+      }
 
       const expenseData = await getExpenses();
-      setExpensesList(expenseData);
+      // Amankan pembacaan array expenses
+      if (Array.isArray(expenseData)) {
+        setExpensesList(expenseData);
+      } else if (expenseData && Array.isArray(expenseData.data)) {
+        setExpensesList(expenseData.data);
+      } else {
+        setExpensesList([]);
+      }
     } catch (error) {
       console.error("Gagal mengambil laporan:", error);
     } finally {
@@ -159,26 +183,32 @@ export default function ReportPage() {
 
   // --- DATA PROCESSING ---
   const filteredTransactions = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return transactions; // Kalau kosong, tampilkan semua
+
     return transactions.filter((tx) => {
       const inv = tx.invoice
         ? String(tx.invoice).toLowerCase()
         : `inv-${String(tx.id).padStart(4, "0")}`;
-      return inv.includes(searchTerm.toLowerCase());
+      return inv.includes(term);
     });
   }, [transactions, searchTerm]);
 
   const filteredExpenses = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return expensesList; // Kalau kosong, tampilkan semua
+
     return expensesList.filter(
-      (ex) =>
-        ex.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ex.category.toLowerCase().includes(searchTerm.toLowerCase()),
+      (ex: any) =>
+        (ex?.description || "").toLowerCase().includes(term) ||
+        (ex?.category || "").toLowerCase().includes(term),
     );
   }, [expensesList, searchTerm]);
 
   const pieData = useMemo(() => {
     const productSales: Record<string, number> = {};
-    transactions.forEach((tx) => {
-      tx.details?.forEach((detail: any) => {
+    (transactions || []).forEach((tx) => {
+      (tx.details || []).forEach((detail: any) => {
         const name = detail.product?.name || "Item Dihapus";
         productSales[name] = (productSales[name] || 0) + detail.quantity;
       });
@@ -190,7 +220,7 @@ export default function ReportPage() {
   }, [transactions]);
 
   const revenueTrendData = useMemo(() => {
-    const sorted = [...transactions].sort(
+    const sorted = [...(transactions || [])].sort(
       (a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
@@ -295,8 +325,11 @@ export default function ReportPage() {
                   Rp {summary.revenue?.toLocaleString("id-ID")}
                 </h3>
               </div>
-              <div className="mt-3 text-xs font-bold text-zinc-500 relative z-10">
-                Penjualan kotor pelanggan
+              <div className="mt-3 text-xs font-bold relative z-10 flex justify-between items-center border-t border-zinc-100 pt-2">
+                <span className="text-zinc-500">Total Nilai Diskon:</span>
+                <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded-md">
+                  - Rp {(summary.total_discount || 0).toLocaleString("id-ID")}
+                </span>
               </div>
             </div>
 
@@ -362,7 +395,7 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* 🔥 NEW BARIS 1.5: REKAP METODE PEMBAYARAN 🔥 */}
+          {/* 🔥 BARIS 1.5: REKAP METODE PEMBAYARAN 🔥 */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-6 mb-8">
             <h2 className="text-lg font-black text-zinc-800 mb-4 flex items-center gap-2">
               <LockKey size={24} className="text-zinc-500" /> Rekap Brankas
@@ -657,11 +690,10 @@ export default function ReportPage() {
                             <span className="font-bold text-zinc-800 bg-zinc-100 px-2 py-1 rounded-md text-xs mr-2">
                               #{tx.invoice || `INV-${tx.id}`}
                             </span>
-                            {/* Nampilin jenis pembayaran di tabel riwayat */}
                             <span
                               className={`text-xs font-bold px-2 py-1 rounded-md ${tx.payment_method === "cash" ? "bg-green-100 text-green-700" : tx.payment_method === "qris" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}
                             >
-                              {tx.payment_method?.toUpperCase()}
+                              {tx.payment_method?.toUpperCase() || "CASH"}
                             </span>
                           </td>
                           <td className="p-4 font-black text-green-600 text-right">
@@ -984,7 +1016,7 @@ export default function ReportPage() {
               </div>
             </div>
           );
-        })()}
+        })}
     </div>
   );
 }
